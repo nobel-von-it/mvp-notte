@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use axum::{Json, Router, http::StatusCode, routing::post};
 use serde::{Deserialize, Serialize};
 use tokio::io;
@@ -10,12 +12,38 @@ struct OpenRequest {
 }
 
 #[derive(Serialize)]
+enum FileType {
+    File,
+    Dir,
+    Link,
+    Other,
+}
+
+#[derive(Serialize)]
 struct OpenResponse {
+    path: String,
     content: Option<Vec<String>>,
+    file_type: FileType,
 }
 
 async fn api_open(Json(open_request): Json<OpenRequest>) -> ApiReturn<OpenResponse> {
-    let result = tokio::fs::read_to_string(&open_request.path).await;
+    let path = PathBuf::from(&open_request.path);
+
+    let result = tokio::fs::read_to_string(&path).await;
+    let file_type = match tokio::fs::metadata(&path).await {
+        Ok(md) => {
+            if md.is_file() {
+                FileType::File
+            } else if md.is_dir() {
+                FileType::Dir
+            } else if md.is_symlink() {
+                FileType::Link
+            } else {
+                FileType::Other
+            }
+        }
+        Err(_) => FileType::Other,
+    };
 
     let status = match &result {
         Err(e) => match e.kind() {
@@ -30,7 +58,14 @@ async fn api_open(Json(open_request): Json<OpenRequest>) -> ApiReturn<OpenRespon
         .map(|c| Some(c.lines().map(|l| l.to_string()).collect::<Vec<String>>()))
         .unwrap_or(None);
 
-    (status, Json(OpenResponse { content }))
+    (
+        status,
+        Json(OpenResponse {
+            path: path.display().to_string(),
+            content,
+            file_type,
+        }),
+    )
 }
 
 #[derive(Deserialize)]
