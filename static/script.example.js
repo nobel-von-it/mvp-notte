@@ -1,9 +1,10 @@
-document.addEventListener("DOMContentLoaded", async () => {
+document.addEventListener("DOMContentLoaded", () => {
     const explorer = document.getElementById("explorer");
     const editor = document.getElementById("current-file-content");
 
-    async function lsDir(path) {
-        return fetch("http://localhost:8080/api/ls", {
+    function lsDir(path) {
+        let result = [];
+        fetch("http://localhost:8080/api/ls", {
             method: "POST",
             headers: {
                 "Content-Type": "application/json"
@@ -13,7 +14,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             })
         }).then(response => {
             response.json().then(data => {
-                return data.content;
+                result = data.content;
             })
         }).catch(error => {
             console.error(error)
@@ -87,7 +88,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     const startDir = ".";
-    lsDir(startDir).then(files => files.forEach(file => {
+    lsDir(startDir).forEach(file => {
         const li = document.createElement("li");
         li.classList.add("explorer-entry");
 
@@ -99,7 +100,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         li.appendChild(btn);
         explorer.appendChild(li);
-    }))
+    })
 
     openEditor("../static/index.example.html");
 })
